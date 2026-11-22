@@ -11,205 +11,205 @@
 <body>
     <div class="app">
 
-    <aside>
-        <div class="brand">
-            <div class="logo-mark">❖</div>
-            <h2>VENTELLIGENT</h2>
-            <p>Automated air ventilation<br />through heat intelligence</p>
-        </div>
-        
-        <nav class="nav" id="sideNav">
-            <button class="active" data-page="dashboard">
-                <span class="ico">▦</span>Dashboard
-            </button>
-            <button data-page="vent">
-                <span class="ico">❁</span>Vent Control
-            </button>
-            <button data-page="history">
-                <span class="ico">◷</span>Alert History
-            </button>
-        </nav>
-
-        <div class="sys">
-            ● System Status
-            <strong id="sysState">CONNECTING</strong>
-                <span id="sysText">Waiting for Firebase...</span>
-        </div>
-    </aside>
-
-    <main>
-        <header class="top">
-        <div>
-            <h1>VENTELLIGENT <span class="pink">Dashboard</span></h1>
-            <div class="sub">Real-Time Monitoring &amp; Intelligent Control</div>
-        </div>
-        <div class="live">
-            <span class="dot" id="liveDot"></span>
-            Live Monitoring | <span id="clock">--</span>
-        </div>
-        </header>
-
-        <nav class="tabs" id="topNav">
-            <button class="active" data-page="dashboard">▦ Dashboard</button>
-            <button data-page="vent">❁ Vent Control</button>
-            <button data-page="history">◷ Alert History</button>
-        </nav>
-
-        <div class="alert-banner" id="banner">
-            <div class="alert-icon">⚠️</div>
-            <div style="flex: 1">
-            <h2 id="bannerTitle">HIGH HEAT INDEX ALERT!</h2>
-            <p id="bannerText">Heat index exceeded the safety threshold.</p>
-        </div>
-        <div class="alert-temp"><span id="bannerTemp">--</span>°C</div>
-            <button id="ackBtn">✓ Acknowledge</button>
-        </div>
-
-        <section class="page active" id="page-dashboard">
-            <div class="grid three">
-
-            <div class="card">
-            <h3>Heat Index</h3>
-            <div class="metric">
-                <span id="currentTemp">--</span><small>°C</small>
-            </div>
-            <div class="center" style="margin-bottom: 10px">
-                <span class="pill" id="tempStatus">Waiting for Sensor...</span>
-            </div>
-            <div class="center muted" style="font-size: 14px; margin-bottom: 8px">
-                <b id="subSensorStats">Temp: --°C | Humidity: --%</b>
-            </div>
-            <div class="muted center">
-            Safety threshold: <b>35°C</b>
-            </div>
-            </div>
-
-            <div class="card center">
-                <h3>Vent Status</h3>
-                <div class="fan-wrapper" id="dashFanIcon" aria-label="Vent Fan Icon">
-                    <svg viewBox="0 0 100 100" class="fan-svg">
-                <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="4" opacity="0.25" />
-                <path d="M50 50 C42 25, 58 12, 65 25 C70 35, 58 45, 50 50 Z" fill="currentColor" />
-                <path d="M50 50 C75 42, 88 58, 75 65 C65 70, 55 58, 50 50 Z" fill="currentColor" />
-                <path d="M50 50 C58 75, 42 88, 35 75 C30 65, 42 55, 50 50 Z" fill="currentColor" />
-                <path d="M50 50 C25 58, 12 42, 25 35 C35 30, 45 42, 50 50 Z" fill="currentColor" />
-                <circle cx="50" cy="50" r="9" fill="#141627" stroke="currentColor" stroke-width="3" />
-            </svg>
-            </div>
-            <div class="fanstate" id="fanState">--</div>
-            <div class="muted" id="fanModeText">--</div>
-            <div class="muted" id="fanCountText">--</div>
-        </div>
-
-            <div class="card wide">
-                <h3>▥ Heat Index Trend</h3>
-            <div class="chart" id="trendChart"></div>
-        </div>
-    </div>
-
-        <div class="grid two" style="margin-top: 14px">
-
-        <div class="card">
-            <h3>Recent Status Changes</h3>
-            <div class="tablewrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date &amp; Time</th>
-                            <th>Heat Index</th>
-                            <th>Status</th>
-                            <th>Vent</th>
-                        </tr>
-                    </thead>
-                <tbody id="recentRows"></tbody>
-                </table>
-            </div>
-            <div class="controls" style="margin-top: 10px">
-                <button class="btn" id="viewAllHistoryBtn">View full alert history →</button>
-            </div>
-            </div>
-
-            <div class="card recommend">
-                <h3>Recommendations</h3>
-                    <b id="recTitle">System Monitoring Active</b>
-                <div id="recBody" style="margin-top: 4px">
-                    Awaiting live data stream from Firebase.
-                </div>
-                <div class="notice">
-                    Suggested vents: <strong id="suggestedFans">--</strong><br />
-                    Vent control mode: <strong id="recMode">--</strong>
-                </div>
-                <div class="muted" id="recReason">
-                    System will adapt airflow once sensor readings synchronize.
-                </div>
-            </div>
-            </div>
-        </section>
-
-        <section class="page" id="page-vent">
-            <div class="card center" style="max-width: 620px; margin: 0 auto">
-            <h3>Vent Control</h3>
-            <div class="fan-wrapper" id="ventPageFanIcon" aria-label="Vent Fan Icon">
-                <svg viewBox="0 0 100 100" class="fan-svg">
-                <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="4" opacity="0.25" />
-                <path d="M50 50 C42 25, 58 12, 65 25 C70 35, 58 45, 50 50 Z" fill="currentColor" />
-                <path d="M50 50 C75 42, 88 58, 75 65 C65 70, 55 58, 50 50 Z" fill="currentColor" />
-                <path d="M50 50 C58 75, 42 88, 35 75 C30 65, 42 55, 50 50 Z" fill="currentColor" />
-                <path d="M50 50 C25 58, 12 42, 25 35 C35 30, 45 42, 50 50 Z" fill="currentColor" />
-                <circle cx="50" cy="50" r="9" fill="#141627" stroke="currentColor" stroke-width="3" />
-                </svg>
-            </div>
-            <div class="fanstate" id="ventPageState">--</div>
-            <div class="muted" id="ventPageDetail">--</div>
-
-            <div class="controls" style="justify-content: center; margin-top: 18px">
-                <button class="btn green" id="btnVentOn">Turn ON</button>
-                <button class="btn danger" id="btnVentOff">Turn OFF</button>
-                <button class="btn primary" id="btnVentAuto">Auto Mode</button>
-            </div>
-
-            <div class="notice" id="ventAdvice" style="margin-top: 18px">
-                Automatic mode follows the live heat index threshold.
-            </div>
-            </div>
-        </section>
-
-        <section class="page" id="page-history">
-            <div class="card">
-                <h3>◷ Heat Index Status &amp; Alert History</h3>
-                <p class="muted" style="margin-top: -6px; margin-bottom: 12px; font-size: 13px">
-                    Automatically logs an entry whenever the Heat Index transitions between Normal, Warning, and Critical states.
-                </p>
-            <div class="controls">
-                <select id="historyFilter" style="max-width: 200px">
-                    <option value="all">All statuses</option>
-                    <option value="critical">Critical</option>
-                    <option value="warning">Warning</option>
-                    <option value="normal">Normal</option>
-                </select>
-                <button class="btn" id="exportCsvBtn">Export CSV</button>
-                <button class="btn" id="clearHistoryBtn">Clear history</button>
+        <aside>
+            <div class="brand">
+                <div class="logo-mark">❖</div>
+                <h2>VENTELLIGENT</h2>
+                <p>Automated air ventilation<br />through heat intelligence</p>
             </div>
             
-            <div class="tablewrap" style="margin-top: 12px">
-            </div><table>
-                <thead>
-                    <tr>
-                    <th>Date &amp; Time</th>
-                    <th>Heat Index</th>
-                    <th>Status</th>
-                    <th>Vent</th>
-                    <th>Event</th>
-                    </tr>
-                </thead>
-                <tbody id="historyRows"></tbody>
-            </table>
-            </div>
-            </div>
-        </section>
+            <nav class="nav" id="sideNav">
+                <button class="active" data-page="dashboard">
+                    <span class="ico">▦</span>Dashboard
+                </button>
+                <button data-page="vent">
+                    <span class="ico">❁</span>Vent Control
+                </button>
+                <button data-page="history">
+                    <span class="ico">◷</span>Alert History
+                </button>
+            </nav>
 
-        <div class="toast" id="toast"></div>
-    </main>
+            <div class="sys">
+                ● System Status
+                <strong id="sysState">CONNECTING</strong>
+                <span id="sysText">Waiting for Firebase...</span>
+            </div>
+        </aside>
+
+        <main>
+            <header class="top">
+                <div>
+                    <h1>VENTELLIGENT <span class="pink">Dashboard</span></h1>
+                    <div class="sub">Real-Time Monitoring &amp; Intelligent Control</div>
+                </div>
+                <div class="live">
+                    <span class="dot" id="liveDot"></span>
+                    Live Monitoring | <span id="clock">--</span>
+                </div>
+            </header>
+
+            <nav class="tabs" id="topNav">
+                <button class="active" data-page="dashboard">▦ Dashboard</button>
+                <button data-page="vent">❁ Vent Control</button>
+                <button data-page="history">◷ Alert History</button>
+            </nav>
+
+            <div class="alert-banner" id="banner">
+                <div class="alert-icon">⚠️</div>
+                <div style="flex: 1">
+                    <h2 id="bannerTitle">HIGH HEAT INDEX ALERT!</h2>
+                    <p id="bannerText">Heat index exceeded the safety threshold.</p>
+                </div>
+                <div class="alert-temp"><span id="bannerTemp">--</span>°C</div>
+                <button id="ackBtn">✓ Acknowledge</button>
+            </div>
+
+            <section class="page active" id="page-dashboard">
+                <div class="grid three">
+
+                    <div class="card">
+                        <h3>Heat Index</h3>
+                        <div class="metric">
+                            <span id="currentTemp">--</span><small>°C</small>
+                        </div>
+                        <div class="center" style="margin-bottom: 10px">
+                            <span class="pill" id="tempStatus">Waiting for Sensor...</span>
+                        </div>
+                        <div class="center muted" style="font-size: 14px; margin-bottom: 8px">
+                            <b id="subSensorStats">Temp: --°C | Humidity: --%</b>
+                        </div>
+                        <div class="muted center">
+                            Safety threshold: <b id="thresholdLabel">35°C</b>
+                        </div>
+                    </div>
+
+                    <div class="card center">
+                        <h3>Vent Status</h3>
+                        <div class="fan-wrapper" id="dashFanIcon" aria-label="Vent Fan Icon">
+                            <svg viewBox="0 0 100 100" class="fan-svg">
+                                <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="4" opacity="0.25" />
+                                <path d="M50 50 C42 25, 58 12, 65 25 C70 35, 58 45, 50 50 Z" fill="currentColor" />
+                                <path d="M50 50 C75 42, 88 58, 75 65 C65 70, 55 58, 50 50 Z" fill="currentColor" />
+                                <path d="M50 50 C58 75, 42 88, 35 75 C30 65, 42 55, 50 50 Z" fill="currentColor" />
+                                <path d="M50 50 C25 58, 12 42, 25 35 C35 30, 45 42, 50 50 Z" fill="currentColor" />
+                                <circle cx="50" cy="50" r="9" fill="#141627" stroke="currentColor" stroke-width="3" />
+                            </svg>
+                        </div>
+                        <div class="fanstate" id="fanState">--</div>
+                        <div class="muted" id="fanModeText">--</div>
+                        <div class="muted" id="fanCountText">--</div>
+                    </div>
+
+                    <div class="card wide">
+                        <h3>▥ Heat Index Trend</h3>
+                        <div class="chart" id="trendChart"></div>
+                    </div>
+                </div>
+
+                <div class="grid two" style="margin-top: 14px">
+
+                    <div class="card">
+                        <h3>Recent Status Changes</h3>
+                        <div class="tablewrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date &amp; Time</th>
+                                        <th>Heat Index</th>
+                                        <th>Status</th>
+                                        <th>Vent</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentRows"></tbody>
+                            </table>
+                        </div>
+                        <div class="controls" style="margin-top: 10px">
+                            <button class="btn" id="viewAllHistoryBtn">View full alert history →</button>
+                        </div>
+                    </div>
+
+                    <div class="card recommend">
+                        <h3>Recommendations</h3>
+                        <b id="recTitle">System Monitoring Active</b>
+                        <div id="recBody" style="margin-top: 4px">
+                            Awaiting live data stream from Firebase.
+                        </div>
+                        <div class="notice">
+                            Suggested vents: <strong id="suggestedFans">--</strong><br />
+                            Vent control mode: <strong id="recMode">--</strong>
+                        </div>
+                        <div class="muted" id="recReason">
+                            System will adapt airflow once sensor readings synchronize.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="page" id="page-vent">
+                <div class="card center" style="max-width: 620px; margin: 0 auto">
+                    <h3>Vent Control</h3>
+                    <div class="fan-wrapper" id="ventPageFanIcon" aria-label="Vent Fan Icon">
+                        <svg viewBox="0 0 100 100" class="fan-svg">
+                            <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="4" opacity="0.25" />
+                            <path d="M50 50 C42 25, 58 12, 65 25 C70 35, 58 45, 50 50 Z" fill="currentColor" />
+                            <path d="M50 50 C75 42, 88 58, 75 65 C65 70, 55 58, 50 50 Z" fill="currentColor" />
+                            <path d="M50 50 C58 75, 42 88, 35 75 C30 65, 42 55, 50 50 Z" fill="currentColor" />
+                            <path d="M50 50 C25 58, 12 42, 25 35 C35 30, 45 42, 50 50 Z" fill="currentColor" />
+                            <circle cx="50" cy="50" r="9" fill="#141627" stroke="currentColor" stroke-width="3" />
+                        </svg>
+                    </div>
+                    <div class="fanstate" id="ventPageState">--</div>
+                    <div class="muted" id="ventPageDetail">--</div>
+
+                    <div class="controls" style="justify-content: center; margin-top: 18px">
+                        <button class="btn green" id="btnVentOn">Turn ON</button>
+                        <button class="btn danger" id="btnVentOff">Turn OFF</button>
+                        <button class="btn primary" id="btnVentAuto">Auto Mode</button>
+                    </div>
+
+                    <div class="notice" id="ventAdvice" style="margin-top: 18px">
+                        Automatic mode follows the live heat index threshold.
+                    </div>
+                </div>
+            </section>
+
+            <section class="page" id="page-history">
+                <div class="card">
+                    <h3>◷ Heat Index Status &amp; Alert History</h3>
+                    <p class="muted" style="margin-top: -6px; margin-bottom: 12px; font-size: 13px">
+                        Automatically logs an entry whenever the Heat Index transitions between Normal, Warning, and Critical states.
+                    </p>
+                    <div class="controls">
+                        <select id="historyFilter" style="max-width: 200px">
+                            <option value="all">All statuses</option>
+                            <option value="critical">Critical</option>
+                            <option value="warning">Warning</option>
+                            <option value="normal">Normal</option>
+                        </select>
+                        <button class="btn" id="exportCsvBtn">Export CSV</button>
+                        <button class="btn" id="clearHistoryBtn">Clear history</button>
+                    </div>
+                    
+                    <div class="tablewrap" style="margin-top: 12px">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date &amp; Time</th>
+                                    <th>Heat Index</th>
+                                    <th>Status</th>
+                                    <th>Vent</th>
+                                    <th>Event</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyRows"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <div class="toast" id="toast"></div>
+        </main>
     </div>
 
     <script type="module" src="app.js"></script>

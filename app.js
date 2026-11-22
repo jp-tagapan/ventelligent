@@ -3,7 +3,7 @@ import {
     getDatabase,
     ref,
     onValue,
-    update,
+    set,
     push,
     remove,
     query,
@@ -23,9 +23,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Thresholds & Constants
-const HIGH_THRESHOLD = 35;
-const WARN_THRESHOLD = 33;
+// Thresholds & Constants (updated dynamically if ESP32 sends onAbove / offBelow)
+let HIGH_THRESHOLD = 35;
+let WARN_THRESHOLD = 33;
 const FAN_CAPACITY = 4;
 
 let airTemp = 0;
@@ -35,8 +35,11 @@ let ventOn = false;
 let autoMode = true;
 let online = false;
 let hasData = false;
+let sensorOk = true;
 let ack = false;
-let lastUpdateTimestamp = 0;
+
+let lastUptimeSec = null;
+let lastHeartbeatArrival = 0;
 
 let readings = [];
 let history = [];
@@ -48,9 +51,9 @@ function getStatus(hi) {
     if (hi >= HIGH_THRESHOLD) return "critical";
     if (hi >= WARN_THRESHOLD) return "warning";
     return "normal";
-    }
+}
 
-    function toast(msg) {
+function toast(msg) {
     const el = $("toast");
     el.textContent = msg;
     el.style.display = "block";
@@ -91,7 +94,7 @@ window.addEventListener(
     "click",
     () => {
         if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
         if (audioCtx.state === "suspended") audioCtx.resume();
     },
@@ -101,7 +104,7 @@ window.addEventListener(
 function startTutt() {
     try {
         if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
         if (audioCtx.state === "suspended") audioCtx.resume();
         if (tuttOsc) return;
@@ -134,14 +137,14 @@ function startTutt() {
 function stopTutt() {
     try {
         if (tuttOsc) {
-        tuttOsc.stop();
-        tuttOsc.disconnect();
-        tuttOsc = null;
+            tuttOsc.stop();
+            tuttOsc.disconnect();
+            tuttOsc = null;
         }
         if (tuttLfo) {
-        tuttLfo.stop();
-        tuttLfo.disconnect();
-        tuttLfo = null;
+            tuttLfo.stop();
+            tuttLfo.disconnect();
+            tuttLfo = null;
         }
     } catch (e) {}
 }
@@ -153,65 +156,80 @@ $("ackBtn").addEventListener("click", () => {
     toast("Alert acknowledged.");
 });
 
-// Firebase Realtime Database References
-const liveDataRef = ref(db, "ventilationSystem/liveData");
-const controlsRef = ref(db, "ventilationSystem/controls");
+// Firebase Realtime Database References (Matched to ESP32 Firmware)
+const statusRef = ref(db, "status");
+const fanCommandRef = ref(db, "fan/command");
 const historyRef = ref(db, "ventilationSystem/statusHistory");
 
-// A) Listen to Live Sensor & Vent Data from ESP32
-onValue(liveDataRef, (snapshot) => {
+// A) Listen to Live Sensor & Vent Status from ESP32 (/status)
+onValue(statusRef, (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
 
+    // Heartbeat tracking via ESP32 uptimeSec
+    if (data.uptimeSec !== undefined && data.uptimeSec !== lastUptimeSec) {
+        lastUptimeSec = data.uptimeSec;
+        lastHeartbeatArrival = Date.now();
+    } else if (lastHeartbeatArrival === 0) {
+        lastHeartbeatArrival = Date.now();
+    }
+
+    sensorOk = data.sensorOk !== false;
     airTemp = Number(data.temperature ?? 0);
     humidity = Number(data.humidity ?? 0);
     heatIndex = Number(data.heatIndex ?? 0);
-    lastUpdateTimestamp = Number(data.lastUpdated ?? Date.now());
 
-    if (autoMode) {
-        ventOn = Boolean(data.fanState);
-    }
+    if (data.onAbove !== undefined) HIGH_THRESHOLD = Number(data.onAbove);
+    if (data.offBelow !== undefined) WARN_THRESHOLD = Number(data.offBelow);
+
+    ventOn = String(data.fan).toUpperCase() === "ON";
+    autoMode = String(data.mode || "auto").toLowerCase() !== "manual";
 
     hasData = true;
     online = true;
 
     // Add to trend line (max 30 points)
-    readings.push(heatIndex);
-    if (readings.length > 30) readings.shift();
+    if (sensorOk && !isNaN(heatIndex)) {
+        readings.push(heatIndex);
+        if (readings.length > 30) readings.shift();
+    }
 
     // Check if Heat Index status CHANGED (Normal <-> Warning <-> Critical)
     const currentStatus = getStatus(heatIndex);
-    if (lastRecordedStatus !== currentStatus) {
+    if (sensorOk && lastRecordedStatus !== currentStatus) {
         const previousStatus = lastRecordedStatus;
         lastRecordedStatus = currentStatus;
 
         const eventLabel =
-        previousStatus === null
-            ? `Initial status recorded: ${currentStatus.toUpperCase()}`
-            : `Status changed: ${previousStatus.toUpperCase()} → ${currentStatus.toUpperCase()}`;
+            previousStatus === null
+                ? `Initial status recorded: ${currentStatus.toUpperCase()}`
+                : `Status changed: ${previousStatus.toUpperCase()} → ${currentStatus.toUpperCase()}`;
 
         push(historyRef, {
-        time: new Date().toLocaleString(),
-        temp: Number(heatIndex.toFixed(1)),
-        status: currentStatus,
-        vent: ventOn ? "ON" : "OFF",
-        event: eventLabel
+            time: new Date().toLocaleString(),
+            temp: Number(heatIndex.toFixed(1)),
+            status: currentStatus,
+            vent: ventOn ? "ON" : "OFF",
+            event: eventLabel
         });
     }
 
     if (heatIndex < HIGH_THRESHOLD) ack = false;
-    currentStatus === "critical" && !ack ? startTutt() : stopTutt();
+    sensorOk && currentStatus === "critical" && !ack ? startTutt() : stopTutt();
 
     updateUI();
 });
 
-// B) Listen to Control Mode (Auto vs Manual Override)
-onValue(controlsRef, (snapshot) => {
-    const ctrl = snapshot.val();
-    if (!ctrl) return;
-    autoMode = ctrl.mode !== "MANUAL";
-    if (!autoMode) {
-        ventOn = Boolean(ctrl.manualFanState);
+// B) Listen to /fan/command for immediate UI feedback on button clicks
+onValue(fanCommandRef, (snapshot) => {
+    const cmd = snapshot.val();
+    if (!cmd) return;
+    const upper = String(cmd).toUpperCase();
+    if (upper === "AUTO") {
+        autoMode = true;
+    } else if (upper === "ON" || upper === "OFF") {
+        autoMode = false;
+        ventOn = upper === "ON";
     }
     updateUI();
 });
@@ -225,37 +243,34 @@ onValue(query(historyRef, limitToLast(100)), (snapshot) => {
     } else {
         history = Object.values(val).reverse(); // Newest first
         if (history.length > 0 && lastRecordedStatus === null) {
-        lastRecordedStatus = history[0].status;
+            lastRecordedStatus = history[0].status;
         }
     }
     renderRecentHistory();
     renderFullHistory();
-    });
+});
 
-// Check every 5s if ESP32 stopped updating (unplugged/offline check)
+// Check every 5s if ESP32 stopped updating uptimeSec (unplugged/offline check)
 setInterval(() => {
     if (!hasData) return;
-    if (lastUpdateTimestamp > 0 && Date.now() - lastUpdateTimestamp > 15000) {
+    if (lastHeartbeatArrival > 0 && Date.now() - lastHeartbeatArrival > 15000) {
         online = false;
         stopTutt();
         updateUI();
     }
 }, 5000);
 
-// Manual Override Buttons
+// Manual Override Buttons (writes "ON", "OFF", or "AUTO" to /fan/command)
 function sendVentCommand(action) {
     if (action === "auto") {
         autoMode = true;
-        update(controlsRef, { mode: "AUTO" });
+        set(fanCommandRef, "AUTO");
         toast("Switched to Auto Mode");
     } else {
         const turnOn = action === "on";
         autoMode = false;
         ventOn = turnOn;
-        update(controlsRef, {
-        mode: "MANUAL",
-        manualFanState: turnOn
-        });
+        set(fanCommandRef, turnOn ? "ON" : "OFF");
         toast(`Manual Override: Vent turned ${turnOn ? "ON" : "OFF"}`);
     }
     updateUI();
@@ -269,8 +284,8 @@ $("btnVentAuto").addEventListener("click", () => sendVentCommand("auto"));
 function getRecommendation(hi) {
     if (hi < HIGH_THRESHOLD) {
         return {
-        count: 0,
-        text: "Heat index is within the safe range. Keep automatic monitoring active."
+            count: 0,
+            text: "Heat index is within the safe range. Keep automatic monitoring active."
         };
     }
     const n = hi >= 39 ? FAN_CAPACITY : hi >= 37 ? 3 : 2;
@@ -281,33 +296,44 @@ function getRecommendation(hi) {
 }
 
 function updateUI() {
-// System & Connection Indicators
+    if ($("thresholdLabel")) $("thresholdLabel").textContent = `${HIGH_THRESHOLD}°C`;
+    // System & Connection Indicators
     $("liveDot").style.background = online ? "var(--green)" : "var(--red)";
     $("liveDot").style.boxShadow = online ? "0 0 12px var(--green)" : "0 0 12px var(--red)";
     $("sysState").textContent = online ? "ACTIVE" : "OFFLINE";
     $("sysState").style.color = online ? "var(--green)" : "var(--red)";
-    $("sysText").textContent = online ? "Synced with Firebase" : "ESP32 offline";
+    $("sysText").textContent = online
+        ? lastUptimeSec !== null
+            ? `Synced (Uptime: ${lastUptimeSec}s)`
+            : "Synced with Firebase"
+        : "ESP32 offline";
 
     const s = getStatus(heatIndex);
 
     // Heat Index Card
-    $("currentTemp").textContent = hasData ? heatIndex.toFixed(1) : "--";
-    $("subSensorStats").textContent = hasData
-        ? `Temp: ${airTemp.toFixed(1)}°C | Humidity: ${humidity.toFixed(1)}%`
-        : "Temp: --°C | Humidity: --%";
+    $("currentTemp").textContent = hasData && sensorOk ? heatIndex.toFixed(1) : "--";
+    $("subSensorStats").textContent =
+        hasData && sensorOk
+            ? `Temp: ${airTemp.toFixed(1)}°C | Humidity: ${humidity.toFixed(1)}%`
+            : !sensorOk
+            ? "DHT22 Sensor Read Error"
+            : "Temp: --°C | Humidity: --%";
 
     const pill = $("tempStatus");
     if (!online) {
         pill.textContent = hasData ? "Offline" : "Waiting for Sensor...";
         pill.style.background = "#444a66";
+    } else if (!sensorOk) {
+        pill.textContent = "Sensor Error";
+        pill.style.background = "#81213a";
     } else {
         pill.textContent = s === "critical" ? "Above Threshold!" : s === "warning" ? "Warning" : "Normal";
         pill.style.background = s === "critical" ? "#81213a" : s === "warning" ? "#815013" : "#087b4b";
     }
 
-// Global Banner
+    // Global Banner
     const banner = $("banner");
-    if (online && s !== "normal" && !ack) {
+    if (online && sensorOk && s !== "normal" && !ack) {
         banner.classList.add("active-banner");
         banner.classList.toggle("flagged", s === "critical");
         $("bannerTitle").textContent = s === "critical" ? "HIGH HEAT INDEX ALERT!" : "HEAT INDEX WARNING";
@@ -317,7 +343,7 @@ function updateUI() {
         banner.classList.remove("active-banner", "flagged");
     }
 
-// Vent Status & Animated Fan Icon (spins when ventOn === true, static when false)
+    // Vent Status & Animated Fan Icon (spins when ventOn === true, static when false)
     $("dashFanIcon").classList.toggle("on", ventOn);
     $("ventPageFanIcon").classList.toggle("on", ventOn);
 
@@ -335,7 +361,7 @@ function updateUI() {
         ? "Automatic mode is active: the ESP32 switches the vent automatically based on the heat index."
         : 'Manual override is active: your app command overrides automatic switching until you press "Auto Mode".';
 
-// Recommendations Card
+    // Recommendations Card
     const rec = getRecommendation(heatIndex);
     $("recTitle").textContent = !hasData
         ? "System Monitoring Active"
@@ -370,8 +396,8 @@ function drawChart() {
     const path = pts.map((a, i) => (i ? "L" : "M") + a.join(",")).join(" ");
     const grid = [20, 25, 30, 35, 40, 45]
         .map(
-        (v) =>
-            `<line x1="${p}" y1="${y(v)}" x2="${w - p}" y2="${y(v)}" stroke="#343954" stroke-dasharray="3 4"/>
+            (v) =>
+                `<line x1="${p}" y1="${y(v)}" x2="${w - p}" y2="${y(v)}" stroke="#343954" stroke-dasharray="3 4"/>
             <text x="2" y="${y(v) + 4}">${v}°</text>`
         )
         .join("");
@@ -399,7 +425,7 @@ function renderRecentHistory() {
     tbody.innerHTML = history
         .slice(0, 4)
         .map(
-        (x) => `
+            (x) => `
         <tr>
             <td>${x.time}</td>
             <td><b>${Number(x.temp).toFixed(1)}°C</b></td>
@@ -422,7 +448,7 @@ function renderFullHistory() {
 
     tbody.innerHTML = rows
         .map(
-        (x) => `
+            (x) => `
         <tr>
             <td>${x.time}</td>
             <td>${Number(x.temp).toFixed(1)}°C</td>
